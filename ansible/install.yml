@@ -1,0 +1,10 @@
+ 
+- hosts: servers
+  become: true
+  gather_facts: no
+  vars_files:
+   - vars
+  roles:
+   - glusterfs
+
+
