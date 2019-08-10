@@ -1,0 +1,65 @@
+
+- name: install pacemaker
+  apt:
+     name: "{{ packages }}"
+  vars:
+     packages:
+     - pacemaker
+     - pcs
+
+- name: copy auth key
+  copy:
+    src: source/authkey
+    dest: /etc/corosync/authkey
+    owner: root
+    group: root
+    mode: '0400'
+
+- name: template corosync config
+  template:
+    src: source/corosync.conf
+    dest: /etc/corosync/corosync.conf
+
+- name: create service.d directory
+  file:
+    path: /etc/corosync/service.d
+    state: directory
+
+- name: copy pcmk
+  copy:
+    src: source/pcmk
+    dest: /etc/corosync/service.d/pcmk
+
+- name: start corosync on boot
+  lineinfile:
+    path: /etc/default/corosync
+    line: START=yes
+
+- name: start and enable corosync
+  service:
+    name: corosync
+    state: restarted
+    enabled: yes
+
+- name: start and enable pacemaker
+  service:
+    name: pacemaker
+    state: restarted
+    enabled: yes
+
+- name: disable stonith
+  command: pcs property set stonith-enabled=false
+
+- name: add cluster_ip
+  command: pcs resource create cluster_ip ocf:heartbeat:IPaddr2 ip={{ cluster_ip }} cidr_netmask={{ cidr }} op monitor interval=20s
+  ignore_errors: yes
+
+  #- name: add postgres service
+  #  command: pcs resource create postgres service:postgresql op monitor interval=20s timeout=240s
+  #ignore_errors: yes
+
+  #- name: add constrant for postgres service
+  #  command: pcs constraint colocation add postgres cluster_ip INFINITY
+  #  ignore_errors: yes
+
+

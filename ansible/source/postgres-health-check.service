@@ -1,0 +1,9 @@
+[Unit]
+Description=This service is used to check to see if the master node is down.
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/bin/postgres-health.sh
+
+[Install]
+WantedBy=multi-user.target

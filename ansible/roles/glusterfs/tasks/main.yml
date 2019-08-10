@@ -1,7 +1,4 @@
 
-- debug:
-    msg: "{{ groups['servers'] | length }}"
-
 - name: install pre dependencies
   apt:
     name: software-properties-common

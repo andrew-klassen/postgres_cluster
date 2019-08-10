@@ -1,0 +1,52 @@
+
+- name: update repositories cache
+  apt:
+     update_cache: yes
+     cache_valid_time: 3600
+
+- name: install dependencies
+  apt:
+     name: "{{ packages }}"
+  vars:
+     packages:
+      - postgresql
+      - postgresql-contrib
+      - python-psycopg2
+      - sshpass
+
+- name: make postgres listen for all hosts
+  lineinfile:
+    path: /etc/postgresql/10/main/postgresql.conf
+    regexp: '^#listen_addresses'
+    line: "listen_addresses = '*'"
+    backrefs: yes
+  register: postgresql_conf
+
+- name: add entry to pg_hba for all hosts
+  lineinfile:
+    path: /etc/postgresql/10/main/pg_hba.conf
+    line: "host all all 0.0.0.0/0 trust"
+  register: pg_hba_conf
+
+- name: make postgres listen for all hosts
+  lineinfile:
+    path: /etc/postgresql/10/main/postgresql.conf
+    regexp: '^data_directory'
+    line: "data_directory = '/postgres_data/postgresql/10/main'"
+    backrefs: yes
+
+- name: restart and enable postgres
+  service:
+    name: postgresql
+    state: restarted
+    enabled: yes
+  when: postgresql_conf is changed or pg_hba_conf is changed
+
+- name: syncronize old postgres data
+  synchronize:
+    src: /var/lib/postgresql
+    dest: /postgres_data
+    archive: yes
+  delegate_to: "{{ inventory_hostname }}"
+  run_once: true
+

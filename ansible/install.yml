@@ -6,5 +6,7 @@
    - vars
   roles:
    - glusterfs
+   - postgres
+   - pacemaker
 
 
