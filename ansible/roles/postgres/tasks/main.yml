@@ -1,9 +1,4 @@
 
-- name: update repositories cache
-  apt:
-     update_cache: yes
-     cache_valid_time: 3600
-
 - name: install dependencies
   apt:
      name: "{{ packages }}"
@@ -28,19 +23,25 @@
     line: "host all all 0.0.0.0/0 trust"
   register: pg_hba_conf
 
-- name: make postgres listen for all hosts
+- name: change postgres data directory to gluster share
   lineinfile:
     path: /etc/postgresql/10/main/postgresql.conf
     regexp: '^data_directory'
     line: "data_directory = '/postgres_data/postgresql/10/main'"
     backrefs: yes
+  register: data_directory
 
 - name: restart and enable postgres
   service:
     name: postgresql
     state: restarted
     enabled: yes
-  when: postgresql_conf is changed or pg_hba_conf is changed
+  when: postgresql_conf is changed or pg_hba_conf is changed or data_directory is changed
+
+- name: see if postgres directory exists under postgres share
+  stat:
+    path: /postgres_data/postgresql
+  register: postgres_data
 
 - name: syncronize old postgres data
   synchronize:
@@ -49,4 +50,34 @@
     archive: yes
   delegate_to: "{{ inventory_hostname }}"
   run_once: true
+  when: postgres_data.stat.exists == false
+
+- name: copy over systemd unit for postgres-health-check.service
+  copy:
+    src: source/postgres-health-check.service
+    dest: /etc/systemd/system/postgres-health-check.service
+    owner: root
+    group: root
+    mode: 0744
+  register: postgres_systemd_unit
+
+- name: add postgres-health-check.service systemd unit
+  command: systemctl daemon-reload
+  when: postgres_systemd_unit is changed
+
+- name: copy postgres-health-check script
+  template:
+    src: source/postgres-health-check.sh
+    dest: /usr/bin/postgres-health-check.sh
+    owner: root
+    group: root
+    mode: 0700
+  register: postgres_health_script
+
+- name: restart and enable postgres-health-check
+  service:
+    name: postgres-health-check
+    state: restarted
+    enabled: yes
+  when: postgres_systemd_unit is changed or postgres_health_script is changed
 

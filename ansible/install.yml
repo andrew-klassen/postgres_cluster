@@ -5,8 +5,8 @@
   vars_files:
    - vars
   roles:
+   - prep
    - glusterfs
    - postgres
    - pacemaker
-
 

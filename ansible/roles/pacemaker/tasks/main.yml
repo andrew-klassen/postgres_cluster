@@ -7,6 +7,41 @@
      - pacemaker
      - pcs
 
+- name: install pacemaker on local host (for corosync key generation)
+  apt:
+     name: "{{ packages }}"
+  vars:
+     packages:
+     - pacemaker
+     - pcs
+     - haveged
+  delegate_to: 127.0.0.1
+
+- name: check if corosync key exists
+  stat: 
+    path: source/authkey
+  register: authkey
+  delegate_to: 127.0.0.1
+
+- name: start and disable haveged
+  service:
+    name: haveged
+    state: started
+    enabled: no
+  delegate_to: 127.0.0.1
+
+- name: generate corosync key
+  command: corosync-keygen -k "{{ playbook_path }}/source/authkey"
+  when: authkey.stat.exists == false
+  delegate_to: 127.0.0.1
+  run_once: true
+
+- name: stop haveged
+  service:
+    name: haveged
+    state: stopped
+  delegate_to: 127.0.0.1
+
 - name: copy auth key
   copy:
     src: source/authkey
@@ -49,17 +84,12 @@
 
 - name: disable stonith
   command: pcs property set stonith-enabled=false
+  run_once: true
 
 - name: add cluster_ip
   command: pcs resource create cluster_ip ocf:heartbeat:IPaddr2 ip={{ cluster_ip }} cidr_netmask={{ cidr }} op monitor interval=20s
-  ignore_errors: yes
-
-  #- name: add postgres service
-  #  command: pcs resource create postgres service:postgresql op monitor interval=20s timeout=240s
-  #ignore_errors: yes
-
-  #- name: add constrant for postgres service
-  #  command: pcs constraint colocation add postgres cluster_ip INFINITY
-  #  ignore_errors: yes
-
+  register: cluster_ip
+  failed_when: "'already exists' in cluster_ip.stderr and '' not in cluster_ip.stderr"
+  changed_when: "'already exists' not in cluster_ip.stderr"
+  run_once: true
 

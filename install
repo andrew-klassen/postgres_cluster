@@ -31,6 +31,7 @@ else
 fi
 
 cd ansible
+playbook_path=$(pwd)
 
-ansible-playbook install.yml -e "ansible_user=${ssh_username} ansible_ssh_pass=${ssh_password} ansible_sudo_pass=${ssh_password}"	
+ansible-playbook install.yml -e "ansible_user=${ssh_username} ansible_ssh_pass=${ssh_password} ansible_sudo_pass=${ssh_password} playbook_path=${playbook_path}"	
 
